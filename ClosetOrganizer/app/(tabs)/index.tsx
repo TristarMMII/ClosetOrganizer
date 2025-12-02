@@ -4,7 +4,7 @@ export default function HomeScreen() {
     return (
         <View style={styles.container}>
             <Text style={styles.title}>Home</Text>
-            <Text>Welcome to your Closet Organizer!</Text>
+            <Text>Welcome to your Closet Organizer! WORK IN PROGRESS</Text>
         </View>
     );
 }
