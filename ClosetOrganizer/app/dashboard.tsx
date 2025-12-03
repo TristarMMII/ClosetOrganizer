@@ -57,7 +57,7 @@ export default function Dashboard() {
 
             <ScrollView style={styles.content}>
                 <Text style={styles.title}>Welcome, Jane!</Text>
-                <Text style={styles.subtitle}>Here is your closet at a glance. test</Text>
+                <Text style={styles.subtitle}>Here is your closet at a glance.</Text>
 
                 {/* Stats */}
                 <View style={styles.statsRow}>
