@@ -4,6 +4,7 @@ import StatsCard from "../components/StatsCard";
 import SectionHeader from "../components/SectionHeader";
 import ItemCard from "../components/ItemCard";
 
+// temporary filler data
 const goToPieces = [
     {
         name: "Blue Denim Jacket",
@@ -27,6 +28,7 @@ const goToPieces = [
     },
 ];
 
+// temporary filler data
 const lowestCost = [
     {
         name: "Striped Longsleeve",
@@ -53,13 +55,16 @@ const lowestCost = [
 export default function Dashboard() {
     return (
         <View style={styles.container}>
+            {/* sidebar for navigation */}
             <Sidebar />
 
             <ScrollView style={styles.content}>
+                {/* TODO: change name to logged in user */}
                 <Text style={styles.title}>Welcome, Jane!</Text>
                 <Text style={styles.subtitle}>Here is your closet at a glance.</Text>
 
                 {/* Stats */}
+                {/* TODO: change later */}
                 <View style={styles.statsRow}>
                     <StatsCard label="Total Items" value="152" />
                     <StatsCard label="Closet Value" value="$8,450" />
@@ -94,8 +99,8 @@ export default function Dashboard() {
 const styles = StyleSheet.create({
     container: { flexDirection: "row", flex: 1, backgroundColor: "#fff" },
     content: { paddingHorizontal: 20, paddingTop: 60, flex: 1 },
-    title: { fontSize: 26, fontWeight: "700" },
-    subtitle: { color: "#666", marginBottom: 20 },
+    title: { fontSize: 40, fontWeight: "700" },
+    subtitle: { color: "#666", marginBottom: 20, fontSize: 22 },
     statsRow: {
         flexDirection: "row",
         marginBottom: 25,
