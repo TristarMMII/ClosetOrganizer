@@ -176,21 +176,29 @@ export default StyleSheet.create({
         fontSize: 16,
     },
     
-   dateRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 8,
+    dateRow: {
+  flexDirection: "row",
+  alignItems: "center",
+  marginBottom: 4,
 },
 
 dateIconButton: {
-    backgroundColor: "#E2E8F0",
-    padding: 12,
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
+  height: 50,              
+  width: 50,
+  marginBottom: 15,
+  backgroundColor: "#E2E8F0",
+  borderRadius: 8,
+  marginLeft: 10,
+  justifyContent: "center",
+  alignItems: "center",
 },
 
+dateContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingRight: 12, // keeps icon aligned
+},
 
 
 });

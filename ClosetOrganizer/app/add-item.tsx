@@ -77,9 +77,9 @@ export default function AddItemScreen() {
             }
         }
 
-        // Date validation
-        const dateError = validateTypedDate(purchaseDateInput);
-        if (dateError) newErrors.purchaseDate = dateError;
+        if (!date) {
+            newErrors.purchaseDate = "Please select a purchase date.";
+        }
 
         setErrors(newErrors);
 
@@ -111,7 +111,7 @@ export default function AddItemScreen() {
         router.push("/closet");
     }
 
-    function formatDate(date?: Date) {
+    function formatDate(date: Date | null) {
         if (!date) return "";
         return date.toLocaleDateString("en-US", {
             year: "numeric",
@@ -120,88 +120,6 @@ export default function AddItemScreen() {
         });
     }
 
-    function parseTypedDate(text: string) {
-        // expects mm/dd/yyyy format
-        const parts = text.split("/");
-        if (parts.length !== 3) return undefined;
-
-        const [month, day, year] = parts.map(Number);
-        if (!month || !day || !year) return undefined;
-
-        const newDate = new Date(year, month - 1, day);
-        return isNaN(newDate.getTime()) ? undefined : newDate;
-    }
-
-    function validateTypedDate(input: string): string | null {
-        if (!input.trim()) return null; // optional field
-
-        // Must match MM/DD/YYYY format
-        const pattern = /^(0?[1-9]|1[0-2])\/(0?[1-9]|[12]\d|3[01])\/\d{4}$/;
-        if (!pattern.test(input)) {
-            return "Please enter a valid date in MM/DD/YYYY format.";
-        }
-
-        const parsed = parseTypedDate(input);
-        if (!parsed || isNaN(parsed.getTime())) {
-            return "Invalid date.";
-        }
-
-        const now = new Date();
-        const year = parsed.getFullYear();
-
-        if (year < 1900) {
-            return "Year must be 1900 or later.";
-        }
-
-        if (year > now.getFullYear()) {
-            return "Year cannot be in the future.";
-        }
-
-        // 🚫 Reject actual future dates (month/day)
-        if (parsed > now) {
-            return "Purchase date cannot be in the future.";
-        }
-
-        // EXTRA VALIDATION: catch invalid days (e.g., 02/31)
-        const [month, day, yr] = input.split("/").map(Number);
-        const constructed = new Date(yr, month - 1, day);
-        if (
-            constructed.getMonth() + 1 !== month ||
-            constructed.getDate() !== day ||
-            constructed.getFullYear() !== yr
-        ) {
-            return "Please enter a valid calendar date.";
-        }
-
-        return null; // date is valid
-    }
-
-
-    function WebDatePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-        return (
-            <input
-                type="date"
-                value={value ? value.split("/").reverse().join("-") : ""}
-                onChange={(e) => {
-                    const iso = e.target.value; // yyyy-mm-dd
-                    if (!iso) return onChange("");
-
-                    const [year, month, day] = iso.split("-");
-                    onChange(`${month}/${day}/${year}`);
-                }}
-                style={{
-                    height: 46,
-                    padding: 6,
-                    borderWidth: 1,
-                    borderColor: "#CBD5E0",
-                    borderRadius: 8,
-                    fontSize: 16,
-                    outline: "none",
-                    cursor: "pointer",
-                }}
-            />
-        );
-    }
 
     function WebDatePickerInput({
         value,
@@ -212,16 +130,39 @@ export default function AddItemScreen() {
         onChange: (text: string) => void;
         error?: boolean;
     }) {
+        // convert MM/DD/YYYY → YYYY-MM-DD safely
+        function convertToISO(dateStr: string) {
+            if (!dateStr) return "";
+
+            const parts = dateStr.split("/");
+            if (parts.length !== 3) return "";
+
+            let [month, day, year] = parts;
+
+            if (year.length !== 4) return ""; // invalid year
+            if (!month || !day || !year) return "";
+
+            // zero-pad
+            month = month.padStart(2, "0");
+            day = day.padStart(2, "0");
+
+            return `${year}-${month}-${day}`;
+        }
+
+        // convert YYYY-MM-DD → MM/DD/YYYY
+        function convertFromISO(iso: string) {
+            if (!iso) return "";
+            const [year, month, day] = iso.split("-");
+            return `${month}/${day}/${year}`;
+        }
+
         return (
             <input
                 type="date"
-                value={value ? value.split("/").reverse().join("-") : ""}
+                value={convertToISO(value)}
                 onChange={(e) => {
-                    const iso = e.target.value; // yyyy-mm-dd
-                    if (!iso) return onChange("");
-
-                    const [year, month, day] = iso.split("-");
-                    onChange(`${month}/${day}/${year}`);
+                    const iso = e.target.value;
+                    onChange(convertFromISO(iso));
                 }}
                 style={{
                     width: "100%",
@@ -234,11 +175,11 @@ export default function AddItemScreen() {
                     fontSize: 16,
                     outline: "none",
                     backgroundColor: "white",
-                    appearance: "none",
                 }}
             />
         );
     }
+
 
 
 
@@ -326,68 +267,74 @@ export default function AddItemScreen() {
                 </View>
 
                 {/* Purchase Date */}
+                {/* Purchase Date */}
                 <Text style={styles.label}>Purchase Date</Text>
 
-                <View style={styles.dateRow}>
-                    {Platform.OS === "web" ? (
-                        <WebDatePickerInput
-                            value={purchaseDateInput}
-                            onChange={(text) => {
-                                setPurchaseDateInput(text);
-                                const parsed = parseTypedDate(text);
-                                if (parsed) setDate(parsed);
-                            }}
-                            error={!!errors.purchaseDate}
-                        />
-                    ) : (
-                        <TextInput
+                {Platform.OS === "web" ? (
+                    // --- WEB DATE INPUT ---
+                    <input
+                        type="date"
+                        value={date ? date.toISOString().split("T")[0] : ""}
+                        onChange={(e) => {
+                            const iso = e.target.value;
+                            if (!iso) return;
+                            const selected = new Date(iso);
+                            setDate(selected);
+                        }}
+                        style={{
+
+                            height: 48,
+                            padding: "0 12px",
+                            borderWidth: 1,
+                            borderStyle: "solid",
+                            borderColor: errors.purchaseDate ? "#E53E3E" : "#E2E8F0",
+                            borderRadius: 8,
+                            fontSize: 16,
+                            backgroundColor: "white",
+                        }}
+                    />
+                ) : (
+                    <>
+
+                        <TouchableOpacity
                             style={[
                                 styles.input,
-                                errors.purchaseDate && styles.inputError,
-                                { flex: 1 }
+                                styles.dateContainer,
+                                errors.purchaseDate && styles.inputError
                             ]}
-                            placeholder="mm/dd/yyyy"
-                            value={purchaseDateInput}
-                            onChangeText={(text) => {
-                                setPurchaseDateInput(text);
-                                const parsed = parseTypedDate(text);
-                                if (parsed) setDate(parsed);
-                            }}
-                        />
-                    )}
-
-                    {/* ICON (mobile only) */}
-                    {Platform.OS !== "web" && (
-                        <TouchableOpacity
-                            style={styles.dateIconButton}
                             onPress={() => setShowDatePicker(true)}
                         >
+                            <Text style={{ color: date ? "#000" : "#A0AEC0" }}>
+                                {date ? formatDate(date) : "Select a date"}
+                            </Text>
+
                             <Ionicons name="calendar-outline" size={20} color="#555" />
                         </TouchableOpacity>
-                    )}
-                </View>
 
-                {/* Error Below Field */}
+                        {showDatePicker && (
+                            <DateTimePicker
+                                value={date || new Date()}
+                                mode="date"
+                                display={Platform.OS === "ios" ? "spinner" : "default"}
+                                onChange={(event, selectedDate) => {
+                                    if (event.type === "dismissed") {
+                                        setShowDatePicker(false);
+                                        return;
+                                    }
+
+                                    if (selectedDate) {
+                                        setDate(selectedDate);
+                                        setShowDatePicker(false);
+                                    }
+                                }}
+                            />
+                        )}
+                    </>
+                )}
+
                 {errors.purchaseDate && (
                     <Text style={styles.error}>{errors.purchaseDate}</Text>
                 )}
-
-                {/* Native iOS/Android Picker */}
-                {showDatePicker && Platform.OS !== "web" && (
-                    <DateTimePicker
-                        value={date || new Date()}
-                        mode="date"
-                        display={Platform.OS === "ios" ? "spinner" : "default"}
-                        onChange={(event, selectedDate) => {
-                            setShowDatePicker(false);
-                            if (selectedDate) {
-                                setDate(selectedDate);
-                                setPurchaseDateInput(formatDate(selectedDate));
-                            }
-                        }}
-                    />
-                )}
-
 
 
                 {/* Cost */}
