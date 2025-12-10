@@ -1,9 +1,11 @@
-import { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Platform } from "react-native";
+import { useState, useRef } from "react";
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Platform, Image } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import styles from "../styles/add.styles";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { supabase } from "@/lib/supabase";
 
 
 
@@ -22,7 +24,7 @@ export default function AddItemScreen() {
     // Form state
     const [name, setName] = useState("");
     const [brand, setBrand] = useState("");
-    const [purchaseDateInput, setPurchaseDateInput] = useState("");
+    // const [purchaseDateInput, setPurchaseDateInput] = useState("");
     const [cost, setCost] = useState("");
     const [notes, setNotes] = useState("");
     const [type, setType] = useState("");
@@ -30,6 +32,8 @@ export default function AddItemScreen() {
     const [date, setDate] = useState<Date | undefined>(undefined);
     const [showDatePicker, setShowDatePicker] = useState(false);
 
+    const [imageUri, setImageUri] = useState<string | null>(null);
+    const webFilePickerRef = useRef<HTMLInputElement>(null);
 
 
 
@@ -87,29 +91,37 @@ export default function AddItemScreen() {
     }
 
 
-    function handleSubmit() {
+    async function handleSubmit() {
         if (!validate()) return;
 
+        // 1. Upload image first
+        const imageUrl = await uploadImage();
+
+        // 2. Format cost
         const formattedCost = cost
-            ? Number(cost).toLocaleString("en-US", {
-                style: "currency",
-                currency: "USD",
-            })
+            ? Number(cost).toFixed(2)
             : null;
 
-        console.log({
+        // 3. Save to Supabase table
+        const { error } = await supabase.from("closet_items").insert({
             name,
             brand,
-            purchaseDate: date ? formatDate(date) : null,
-            cost: formattedCost,
+            clothing_type: type,
             notes,
-            type,
+            cost: formattedCost,
+            purchase_date: date?.toISOString(),
+            image_url: imageUrl,   // <<<<<< SAVED CORRECTLY
         });
 
-
+        if (error) {
+            console.log("Supabase insert error:", error);
+            return;
+        }
 
         router.push("/closet");
     }
+
+
 
     function formatDate(date: Date | null) {
         if (!date) return "";
@@ -181,6 +193,85 @@ export default function AddItemScreen() {
     }
 
 
+    async function pickImage() {
+        if (Platform.OS === "web") {
+            // Open hidden <input type="file">
+            webFilePickerRef.current?.click();
+            return;
+        }
+
+        // Native (iOS/Android)
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== "granted") {
+            alert("Permission denied! Please allow photo permissions.");
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.9,
+        });
+
+        if (!result.canceled) {
+            setImageUri(result.assets[0].uri);
+        }
+    }
+
+    function handleWebFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const url = URL.createObjectURL(file);
+        setImageUri(url);
+    }
+
+    async function uploadImage(): Promise<string | null> {
+        if (!imageUri) return null;
+
+        try {
+            let file: any;
+            let filePath = `items/${Date.now()}-${Math.random()}.jpg`;
+
+            if (Platform.OS === "web") {
+                // On web, convert input file to File object
+                const input = webFilePickerRef.current;
+                if (!input || !input.files?.[0]) return null;
+
+                file = input.files[0];
+
+            } else {
+                // Native — convert file:// URI to blob
+                const response = await fetch(imageUri);
+                file = await response.blob();
+            }
+
+            // Upload to Supabase Storage
+            const { data, error } = await supabase.storage
+                .from("closet-images")
+                .upload(filePath, file, {
+                    contentType: "image/jpeg",
+                    upsert: false,
+                });
+
+            if (error) {
+                console.error("Upload error:", error);
+                return null;
+            }
+
+            // Get a public URL
+            const { data: publicUrlData } = supabase.storage
+                .from("closet-images")
+                .getPublicUrl(filePath);
+
+            return publicUrlData.publicUrl;
+
+        } catch (e) {
+            console.error("uploadImage() error:", e);
+            return null;
+        }
+    }
 
 
 
@@ -192,17 +283,46 @@ export default function AddItemScreen() {
             </Text>
 
             {/* Upload Box */}
-            <View style={styles.uploadBox}>
-                <Ionicons name="cloud-upload-outline" size={50} color="#A0AEC0" />
-                <Text style={styles.uploadTitle}>Upload Photo</Text>
-                <Text style={styles.uploadSubtitle}>
-                    Drag & drop an image or click to browse.
-                </Text>
+            {Platform.OS === "web" && (
+                <input
+                    ref={webFilePickerRef}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    onChange={handleWebFileChange}
+                />
+            )}
 
-                <TouchableOpacity style={styles.browseButton}>
-                    <Text style={styles.browseButtonText}>Browse Files</Text>
-                </TouchableOpacity>
+            <View style={styles.uploadBox}>
+                {imageUri ? (
+                    <>
+                        <Image
+                            source={{ uri: imageUri }}
+                            style={{ width: 160, height: 160, borderRadius: 12, marginBottom: 12 }}
+                            resizeMode="cover"
+                        />
+                        <TouchableOpacity style={styles.browseButton} onPress={pickImage}>
+                            <Text style={styles.browseButtonText}>
+                                {imageUri ? "Change Image" : "Browse Files"}
+                            </Text>
+                        </TouchableOpacity>
+
+                    </>
+                ) : (
+                    <>
+                        <Ionicons name="cloud-upload-outline" size={50} color="#A0AEC0" />
+                        <Text style={styles.uploadTitle}>Upload Photo</Text>
+                        <Text style={styles.uploadSubtitle}>
+                            Drag & drop an image or click to browse.
+                        </Text>
+
+                        <TouchableOpacity style={styles.browseButton} onPress={pickImage}>
+                            <Text style={styles.browseButtonText}>Browse Files</Text>
+                        </TouchableOpacity>
+                    </>
+                )}
             </View>
+
 
             {/* FORM */}
             <View style={styles.form}>
