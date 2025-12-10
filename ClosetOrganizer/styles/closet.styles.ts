@@ -5,7 +5,7 @@ export default StyleSheet.create({
     flex: 1,
     paddingTop: 40,
     paddingHorizontal: 40,  
-    backgroundColor: "#F7F8FA",
+    backgroundColor: "#ffffffff",
   },
 
   title: {

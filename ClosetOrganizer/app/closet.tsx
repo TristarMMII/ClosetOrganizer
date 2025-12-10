@@ -54,6 +54,28 @@ const initialItems = [
         worn: 8,
         cpw: "$6.25",
         image: "https://i.imgur.com/kQO2tJx.jpeg",
+    }, {
+        name: "Black T-Shirt",
+        worn: 5,
+        cpw: "$4.00",
+        image: "https://i.imgur.com/bR44Cbp.jpeg",
+    },
+    {
+        name: "Beige Chinos",
+        worn: 8,
+        cpw: "$6.25",
+        image: "https://i.imgur.com/kQO2tJx.jpeg",
+    }, {
+        name: "Black T-Shirt",
+        worn: 5,
+        cpw: "$4.00",
+        image: "https://i.imgur.com/bR44Cbp.jpeg",
+    },
+    {
+        name: "Beige Chinos",
+        worn: 8,
+        cpw: "$6.25",
+        image: "https://i.imgur.com/kQO2tJx.jpeg",
     },
 ];
 
