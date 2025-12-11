@@ -48,3 +48,18 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+## Clerk + Supabase
+
+This project supports Clerk for user authentication and Supabase for storing user data. To get per-user closets working:
+
+1. Sign up for Clerk and add a new application. Get your Publishable Key, and set it as `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`.
+2. Make sure your Supabase project environment variables `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` are set.
+3. Add a `clerk_user_id` column to your `closet_items` table in Supabase (recommended):
+
+```sql
+alter table public.closet_items add column clerk_user_id text;
+create index on public.closet_items (clerk_user_id);
+```
+
+4. If you want to be secure at the database level, configure Supabase Row-Level Security and map Clerk JWTs to Supabase JWTs (advanced). See the `README-CLERK-SUPABASE.md` file for more details.

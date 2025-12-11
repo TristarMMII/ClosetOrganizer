@@ -1,10 +1,13 @@
 import { View, Text, Image, StyleSheet } from "react-native";
 
 type ClothingItem = {
+    id?: string;
     name: string;
-    worn: number;
-    cpw: string;
-    image: string;
+    worn?: number;
+    cpw?: string;
+    image?: string;
+    image_url?: string | null;
+    cost?: string | null;
 };
 
 type Props = {
@@ -16,14 +19,18 @@ export default function ClothingCard({ item, viewType }: Props) {
     const listMode = viewType === "list";
 
     // LIST MODE stays the same; only GRID MODE changes to 4 columns
+    const imageUri = item.image || item.image_url || "https://i.pravatar.cc/300";
+
     if (listMode) {
         return (
             <View style={styles.listCard}>
-                <Image source={{ uri: item.image }} style={styles.listImage} />
+                <Image source={{ uri: imageUri }} style={styles.listImage} />
                 <View style={styles.info}>
                     <Text style={styles.name}>{item.name}</Text>
-                    <Text style={styles.detail}>Worn: {item.worn} times</Text>
-                    <Text style={styles.detail}>CPW: {item.cpw}</Text>
+                    {typeof item.worn !== 'undefined' && (
+                        <Text style={styles.detail}>Worn: {item.worn} times</Text>
+                    )}
+                    {item.cost && <Text style={styles.detail}>Cost: ${item.cost}</Text>}
                 </View>
             </View>
         );
@@ -32,15 +39,17 @@ export default function ClothingCard({ item, viewType }: Props) {
     // GRID MODE - 4 PER ROW
     return (
         <View style={styles.gridCard}>
-            <Image source={{ uri: item.image }} style={styles.gridImage} />
+            <Image source={{ uri: imageUri }} style={styles.gridImage} />
 
             <Text style={styles.gridName} numberOfLines={1}>
                 {item.name}
             </Text>
 
             <div style={styles.horizontalText}>
-                <Text style={styles.gridMeta}>Worn: {item.worn} times</Text>
-                <Text style={styles.gridMeta}>CPW: {item.cpw}</Text>
+                {typeof item.worn !== 'undefined' && (
+                    <Text style={styles.gridMeta}>Worn: {item.worn} times</Text>
+                )}
+                {item.cost && <Text style={styles.gridMeta}>Cost: ${item.cost}</Text>}
             </div>
         </View>
     );

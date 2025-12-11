@@ -1,11 +1,12 @@
 import { useState, useRef } from "react";
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Platform, Image } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Platform, Image, Alert } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import styles from "../styles/add.styles";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { supabase } from "@/lib/supabase";
+import { useUser, useAuth } from "@clerk/clerk-expo";
 
 
 
@@ -20,6 +21,8 @@ const clothingTypes = [
 
 export default function AddItemScreen() {
     const router = useRouter();
+    const { user } = useUser();
+    const { isSignedIn } = useAuth();
 
     // Form state
     const [name, setName] = useState("");
@@ -92,6 +95,11 @@ export default function AddItemScreen() {
 
 
     async function handleSubmit() {
+        if (!isSignedIn) {
+            // Redirect to sign in
+            router.push({ pathname: '/sign-in' } as any);
+            return;
+        }
         if (!validate()) return;
 
         // 1. Upload image first
@@ -103,7 +111,8 @@ export default function AddItemScreen() {
             : null;
 
         // 3. Save to Supabase table
-        const { error } = await supabase.from("closet_items").insert({
+        console.log('Saving item for Clerk ID:', user?.id);
+        let res = await supabase.from("closet_items").insert({
             name,
             brand,
             clothing_type: type,
@@ -111,10 +120,48 @@ export default function AddItemScreen() {
             cost: formattedCost,
             purchase_date: date?.toISOString(),
             image_url: imageUrl,   // <<<<<< SAVED CORRECTLY
+            clerk_user_id: user?.id,
         });
+
+        let error = res.error;
+
+        // If the clerk_user_id column doesn't exist, fall back to user_id (legacy)
+        const colNotFound = (error?.message || '').toLowerCase().includes('column "clerk_user_id"') ||
+            (error?.code === '42703'); // undefined column
+
+        if (colNotFound) {
+            console.warn('clerk_user_id column not found — falling back to user_id insertion.');
+            Alert.alert(
+                'Database column not found',
+                'The `clerk_user_id` column is not present in your `closet_items` table.\n\nYou can add it with:\n\nalter table public.closet_items add column clerk_user_id text;\ncreate index on public.closet_items (clerk_user_id);\n\nOr if you want to keep `user_id`, ensure it is a text column that can store Clerk user IDs.'
+            );
+            const res2 = await supabase.from("closet_items").insert({
+                name,
+                brand,
+                clothing_type: type,
+                notes,
+                cost: formattedCost,
+                purchase_date: date?.toISOString(),
+                image_url: imageUrl,
+                user_id: user?.id,
+            });
+            error = res2.error;
+        }
 
         if (error) {
             console.log("Supabase insert error:", error);
+
+            // If the database indicates a UUID parsing error, show a more helpful alert
+            const message = error?.message || "Unknown error";
+            if (message.includes("invalid input syntax for type uuid") || error.code === "22P02") {
+                Alert.alert(
+                    "Database type mismatch",
+                    "Your database expects a UUID for the `user_id` column, but Clerk user IDs are not UUIDs (they look like `user_xxx`).\n\nTo fix this, change the `user_id` column to text: see README-CLERK-SUPABASE.md for steps."
+                );
+            } else {
+                Alert.alert("Error saving item", message);
+            }
+
             return;
         }
 
@@ -133,64 +180,7 @@ export default function AddItemScreen() {
     }
 
 
-    function WebDatePickerInput({
-        value,
-        onChange,
-        error,
-    }: {
-        value: string;
-        onChange: (text: string) => void;
-        error?: boolean;
-    }) {
-        // convert MM/DD/YYYY → YYYY-MM-DD safely
-        function convertToISO(dateStr: string) {
-            if (!dateStr) return "";
-
-            const parts = dateStr.split("/");
-            if (parts.length !== 3) return "";
-
-            let [month, day, year] = parts;
-
-            if (year.length !== 4) return ""; // invalid year
-            if (!month || !day || !year) return "";
-
-            // zero-pad
-            month = month.padStart(2, "0");
-            day = day.padStart(2, "0");
-
-            return `${year}-${month}-${day}`;
-        }
-
-        // convert YYYY-MM-DD → MM/DD/YYYY
-        function convertFromISO(iso: string) {
-            if (!iso) return "";
-            const [year, month, day] = iso.split("-");
-            return `${month}/${day}/${year}`;
-        }
-
-        return (
-            <input
-                type="date"
-                value={convertToISO(value)}
-                onChange={(e) => {
-                    const iso = e.target.value;
-                    onChange(convertFromISO(iso));
-                }}
-                style={{
-                    width: "100%",
-                    height: 48,
-                    padding: "0 12px",
-                    borderWidth: 1,
-                    borderStyle: "solid",
-                    borderColor: error ? "#E53E3E" : "#E2E8F0",
-                    borderRadius: 8,
-                    fontSize: 16,
-                    outline: "none",
-                    backgroundColor: "white",
-                }}
-            />
-        );
-    }
+    // For the web date input we use a standard <input type="date"> inline above. Removed the custom WebDatePickerInput to avoid unused definition.
 
 
     async function pickImage() {
@@ -248,7 +238,7 @@ export default function AddItemScreen() {
             }
 
             // Upload to Supabase Storage
-            const { data, error } = await supabase.storage
+            const { error } = await supabase.storage
                 .from("closet-images")
                 .upload(filePath, file, {
                     contentType: "image/jpeg",
